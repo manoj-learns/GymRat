@@ -125,15 +125,33 @@ actor FirebaseService {
     // MARK: - Friends
     func addFriend(myUserId: String, friendUserId: String, friendName: String,
                    friendUsername: String, friendAvatar: Int) async throws {
-        let docId = "\(myUserId)_\(friendUserId)"
-        let fields: [String: FSValue] = [
-            "userId":          .string(myUserId),
-            "friendUserId":    .string(friendUserId),
-            "friendName":      .string(friendName),
-            "friendUsername":  .string(friendUsername),
-            "friendAvatar":    .integer(String(friendAvatar))
+        // Create friendship for me → them
+        let docA = "\(myUserId)_\(friendUserId)"
+        let fieldsA: [String: FSValue] = [
+            "userId":         .string(myUserId),
+            "friendUserId":   .string(friendUserId),
+            "friendName":     .string(friendName),
+            "friendUsername": .string(friendUsername),
+            "friendAvatar":   .integer(String(friendAvatar))
         ]
-        try await patchDocument(collection: "friendships", docId: docId, fields: fields)
+        try await patchDocument(collection: "friendships", docId: docA, fields: fieldsA)
+
+        // Also look up my own profile to create friendship them → me
+        if let me = try? await getDocument(collection: "users", docId: myUserId),
+           let fields = me.fields as [String: FSValue]? {
+            let myName     = fields["displayName"]?.stringVal ?? ""
+            let myUsername = fields["username"]?.stringVal ?? ""
+            let myAvatar   = fields["avatarIndex"]?.intVal ?? 0
+            let docB = "\(friendUserId)_\(myUserId)"
+            let fieldsB: [String: FSValue] = [
+                "userId":         .string(friendUserId),
+                "friendUserId":   .string(myUserId),
+                "friendName":     .string(myName),
+                "friendUsername": .string(myUsername),
+                "friendAvatar":   .integer(String(myAvatar))
+            ]
+            try await patchDocument(collection: "friendships", docId: docB, fields: fieldsB)
+        }
     }
 
     func fetchFriends(myUserId: String) async throws -> [FriendRow] {
@@ -150,8 +168,8 @@ actor FirebaseService {
     }
 
     func removeFriend(myUserId: String, friendUserId: String) async throws {
-        let docId = "\(myUserId)_\(friendUserId)"
-        try await deleteDocument(collection: "friendships", docId: docId)
+        try await deleteDocument(collection: "friendships", docId: "\(myUserId)_\(friendUserId)")
+        try? await deleteDocument(collection: "friendships", docId: "\(friendUserId)_\(myUserId)")
     }
 
     // MARK: - REST primitives

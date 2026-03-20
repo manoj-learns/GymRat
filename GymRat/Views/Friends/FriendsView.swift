@@ -25,6 +25,7 @@ struct FriendsView: View {
                     segmentPicker
                     ScrollView {
                         VStack(spacing: 14) {
+                            if vm.profileCreated { myProfileCard }
                             if selectedTab == 0 { leaderboardSection }
                             else                { friendsSection     }
                             Spacer(minLength: 20)
@@ -71,6 +72,9 @@ struct FriendsView: View {
                 await vm.loadFriends()
                 await vm.loadLeaderboard()
             }
+            .onChange(of: selectedTab) { _, tab in
+                if tab == 0 { Task { await vm.loadLeaderboard() } }
+            }
             .onChange(of: vm.successMessage) { _, msg in
                 if msg != nil {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
@@ -78,6 +82,59 @@ struct FriendsView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - My Profile Card
+    private var myProfileCard: some View {
+        Button { showProfileSetup = true } label: {
+            HStack(spacing: 14) {
+                Text(FriendsViewModel.avatarEmojis[safe: vm.avatarIndex] ?? "💪")
+                    .font(.system(size: 40))
+                    .frame(width: 56, height: 56)
+                    .background(Color.gymPrimary.opacity(0.12))
+                    .cornerRadius(28)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(vm.displayName)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.white)
+                    Text("@\(vm.username)")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 6) {
+                    Button {
+                        Task { await vm.syncProfileIfNeeded() }
+                    } label: {
+                        HStack(spacing: 4) {
+                            if vm.isSyncing {
+                                ProgressView().tint(.white).scaleEffect(0.6)
+                            } else {
+                                Image(systemName: vm.isProfileSynced ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
+                                    .font(.system(size: 11))
+                            }
+                            Text(vm.isProfileSynced ? "Synced" : "Tap to Sync")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundStyle(vm.isProfileSynced ? Color(red: 0.0, green: 0.9, blue: 0.7) : Color.gymOrange)
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .background(vm.isProfileSynced ? Color(red: 0.0, green: 0.9, blue: 0.7).opacity(0.12) : Color.gymOrange.opacity(0.15))
+                        .cornerRadius(8)
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(vm.isProfileSynced ? Color.clear : Color.gymOrange.opacity(0.4), lineWidth: 1))
+                    }
+                    Image(systemName: "pencil")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.3))
+                }
+            }
+            .padding(14)
+            .background(Color.gymPrimary.opacity(0.06))
+            .cornerRadius(16)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.gymPrimary.opacity(0.2), lineWidth: 1))
         }
     }
 
@@ -237,14 +294,9 @@ struct FriendsView: View {
                 .padding(.vertical, 40)
             } else {
                 ForEach(vm.friends) { friend in
-                    FriendCard(friend: friend)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                Task { await vm.removeFriend(friend) }
-                            } label: {
-                                Label("Remove", systemImage: "person.badge.minus")
-                            }
-                        }
+                    FriendCard(friend: friend) {
+                        Task { await vm.removeFriend(friend) }
+                    }
                 }
             }
         }
@@ -255,29 +307,42 @@ struct FriendsView: View {
         NavigationStack {
             ZStack {
                 Color.gymBackground.ignoresSafeArea()
-                VStack(spacing: 20) {
+                VStack(spacing: 16) {
+                    // Your shareable username
+                    HStack(spacing: 10) {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.gymPrimary)
+                        Text("Your username: ")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.white.opacity(0.5))
+                        Text("@\(vm.username)")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.gymPrimary)
+                        Spacer()
+                    }
+                    .padding(12)
+                    .background(Color.gymPrimary.opacity(0.08))
+                    .cornerRadius(10)
+
                     FormCard {
                         HStack(spacing: 10) {
-                            Image(systemName: "at")
-                                .foregroundStyle(.gymGreen)
-                            TextField("Username", text: $friendUsernameInput)
+                            Image(systemName: "at").foregroundStyle(.gymGreen)
+                            TextField("username (without @)", text: $friendUsernameInput)
                                 .foregroundStyle(.white)
                                 .tint(.gymGreen)
                                 .autocorrectionDisabled()
                                 .textInputAutocapitalization(.never)
+                                .onSubmit { Task { await vm.searchUser(query: friendUsernameInput) } }
                         }
                     }
 
                     Button {
-                        Task {
-                            await vm.searchUser(query: friendUsernameInput)
-                        }
+                        Task { await vm.searchUser(query: friendUsernameInput) }
                     } label: {
                         HStack {
-                            if vm.isSearching {
-                                ProgressView().tint(.white).scaleEffect(0.8)
-                            }
-                            Text("Search")
+                            if vm.isSearching { ProgressView().tint(.white).scaleEffect(0.8) }
+                            Text(vm.isSearching ? "Searching..." : "Search")
                                 .font(.system(size: 15, weight: .bold))
                         }
                         .foregroundStyle(.white)
@@ -312,20 +377,26 @@ struct FriendsView: View {
                                         Text("Add")
                                             .font(.system(size: 13, weight: .bold))
                                             .foregroundStyle(.white)
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 8)
-                                            .background(Color.gymGreen)
-                                            .cornerRadius(20)
+                                            .padding(.horizontal, 16).padding(.vertical, 8)
+                                            .background(Color.gymGreen).cornerRadius(20)
                                     }
                                 }
-                                .padding(14)
-                                .gymCard()
+                                .padding(14).gymCard()
                             }
                         }
-                    } else if !friendUsernameInput.isEmpty && !vm.isSearching {
-                        Text("No user found with that username.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.white.opacity(0.45))
+                    }
+
+                    if let err = vm.errorMessage {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.gymYellow)
+                            Text(err)
+                                .font(.system(size: 12))
+                                .foregroundStyle(.white.opacity(0.7))
+                        }
+                        .padding(12)
+                        .background(Color.gymYellow.opacity(0.1))
+                        .cornerRadius(10)
                     }
 
                     Spacer()
@@ -436,6 +507,9 @@ struct LeaderboardRowCard: View {
 // MARK: - Friend Card
 struct FriendCard: View {
     let friend: FriendRow
+    let onRemove: () -> Void
+
+    @State private var showConfirm = false
 
     var body: some View {
         HStack(spacing: 14) {
@@ -450,12 +524,21 @@ struct FriendCard: View {
                     .foregroundStyle(.white.opacity(0.45))
             }
             Spacer()
-            Image(systemName: "person.fill.checkmark")
-                .font(.system(size: 14))
-                .foregroundStyle(.gymGreen)
+            Button { showConfirm = true } label: {
+                Image(systemName: "person.fill.xmark")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.gymRed.opacity(0.7))
+                    .padding(8)
+                    .background(Color.gymRed.opacity(0.1))
+                    .cornerRadius(8)
+            }
         }
         .padding(14)
         .gymCard()
+        .confirmationDialog("Remove \(friend.displayName)?", isPresented: $showConfirm, titleVisibility: .visible) {
+            Button("Remove Friend", role: .destructive) { onRemove() }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 }
 

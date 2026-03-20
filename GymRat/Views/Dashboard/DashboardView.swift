@@ -8,6 +8,7 @@ struct DashboardView: View {
     @Query(sort: \WorkoutSession.date, order: .reverse) private var allWorkouts: [WorkoutSession]
     @Query(sort: \SleepEntry.date, order: .reverse) private var allSleeps: [SleepEntry]
 
+    @EnvironmentObject var friendsVM: FriendsViewModel
     @StateObject private var aiService = AIService.shared
     @State private var insights: [AIInsight] = []
     @State private var isLoadingInsights = false
@@ -89,6 +90,7 @@ struct DashboardView: View {
         .task { await loadInsights() }
         .sheet(isPresented: $showSettings) {
             SettingsView()
+                .environmentObject(friendsVM)
         }
     }
 

@@ -1,7 +1,11 @@
 import SwiftUI
+import SwiftData
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var friendsVM: FriendsViewModel
+
     @AppStorage("anthropic_api_key") private var apiKey: String = ""
     @AppStorage("firebase_project_id") private var firebaseProjectId: String = ""
     @AppStorage("calorie_goal") private var calorieGoal: String = "2200"
@@ -15,6 +19,7 @@ struct SettingsView: View {
     @State private var tempProjectId: String = ""
     @State private var isApiKeySaved = false
     @State private var isProjectIdSaved = false
+    @State private var showResetConfirm = false
 
     var body: some View {
         NavigationStack {
@@ -22,21 +27,12 @@ struct SettingsView: View {
                 Color.gymBackground.ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 20) {
-                        // Profile
                         profileSection
-
-                        // AI Configuration
                         aiSection
-
-                        // Firebase
                         firebaseSection
-
-                        // Goals
                         goalsSection
-
-                        // About
+                        resetSection
                         aboutSection
-
                         Spacer(minLength: 40)
                     }
                     .padding(.horizontal)
@@ -76,66 +72,47 @@ struct SettingsView: View {
             HStack {
                 SectionHeader(title: "AI Configuration", icon: "brain.head.profile", color: .gymGreen)
                 Spacer()
-                Button {
-                    showApiKeyInfo = true
-                } label: {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(Color.gymPrimary)
+                Button { showApiKeyInfo = true } label: {
+                    Image(systemName: "info.circle").foregroundStyle(Color.gymPrimary)
                 }
             }
-
             VStack(spacing: 10) {
                 HStack(spacing: 10) {
                     Image(systemName: apiKey.isEmpty ? "key.slash" : "key.fill")
                         .font(.system(size: 14))
                         .foregroundStyle(apiKey.isEmpty ? Color.gymRed : Color.gymGreen)
-
                     Text(apiKey.isEmpty ? "No API Key" : "API Key Configured")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(apiKey.isEmpty ? Color.gymRed : Color.gymGreen)
                     Spacer()
                     if !apiKey.isEmpty {
                         Text("sk-ant-***\(String(apiKey.suffix(6)))")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.4))
+                            .font(.system(size: 11)).foregroundStyle(.white.opacity(0.4))
                     }
                 }
-                .padding(14)
-                .gymCard()
+                .padding(14).gymCard()
 
                 SecureField("Enter Claude API Key", text: $tempApiKey)
-                    .foregroundStyle(.white)
-                    .tint(.gymGreen)
-                    .padding(14)
-                    .gymCard()
+                    .foregroundStyle(.white).tint(.gymGreen).padding(14).gymCard()
 
                 Button {
                     apiKey = tempApiKey
                     isApiKeySaved = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                        isApiKeySaved = false
-                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) { isApiKeySaved = false }
                 } label: {
                     HStack {
-                        if isApiKeySaved {
-                            Image(systemName: "checkmark.circle.fill")
-                        }
+                        if isApiKeySaved { Image(systemName: "checkmark.circle.fill") }
                         Text(isApiKeySaved ? "Saved!" : "Save API Key")
                             .font(.system(size: 15, weight: .bold))
                     }
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .foregroundStyle(.white).frame(maxWidth: .infinity).padding(.vertical, 12)
                     .background(isApiKeySaved ? AnyShapeStyle(Color.gymGreen) : AnyShapeStyle(LinearGradient.gymGreenGrad))
                     .cornerRadius(12)
                 }
-                .disabled(tempApiKey.isEmpty)
-                .opacity(tempApiKey.isEmpty ? 0.5 : 1)
+                .disabled(tempApiKey.isEmpty).opacity(tempApiKey.isEmpty ? 0.5 : 1)
 
                 Text("Your API key is stored locally on your device and never shared.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.35))
-                    .multilineTextAlignment(.center)
+                    .font(.system(size: 11)).foregroundStyle(.white.opacity(0.35)).multilineTextAlignment(.center)
             }
         }
         .alert("About Claude API", isPresented: $showApiKeyInfo) {
@@ -152,68 +129,53 @@ struct SettingsView: View {
                 SectionHeader(title: "Firebase (Friends & Leaderboard)", icon: "person.2.fill", color: Color(red: 0.0, green: 0.9, blue: 0.7))
                 Spacer()
                 Button { showFirebaseInfo = true } label: {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(Color.gymPrimary)
+                    Image(systemName: "info.circle").foregroundStyle(Color.gymPrimary)
                 }
             }
-
             VStack(spacing: 10) {
                 HStack(spacing: 10) {
                     Image(systemName: firebaseProjectId.isEmpty ? "wifi.slash" : "checkmark.circle.fill")
                         .font(.system(size: 14))
                         .foregroundStyle(firebaseProjectId.isEmpty ? Color.gymRed : Color(red: 0.0, green: 0.9, blue: 0.7))
-
                     Text(firebaseProjectId.isEmpty ? "Not Connected" : "Firebase Connected")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(firebaseProjectId.isEmpty ? Color.gymRed : Color(red: 0.0, green: 0.9, blue: 0.7))
                     Spacer()
                     if !firebaseProjectId.isEmpty {
-                        Text(firebaseProjectId)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.4))
-                            .lineLimit(1)
-                            .truncationMode(.middle)
+                        Text(firebaseProjectId).font(.system(size: 11)).foregroundStyle(.white.opacity(0.4))
+                            .lineLimit(1).truncationMode(.middle)
                     }
                 }
-                .padding(14)
-                .gymCard()
+                .padding(14).gymCard()
 
                 TextField("Firebase Project ID", text: $tempProjectId)
-                    .foregroundStyle(.white)
-                    .tint(Color(red: 0.0, green: 0.9, blue: 0.7))
-                    .autocapitalization(.none)
-                    .autocorrectionDisabled()
-                    .padding(14)
-                    .gymCard()
+                    .foregroundStyle(.white).tint(Color(red: 0.0, green: 0.9, blue: 0.7))
+                    .autocapitalization(.none).autocorrectionDisabled()
+                    .padding(14).gymCard()
 
                 Button {
                     firebaseProjectId = tempProjectId
                     UserDefaults.standard.set(tempProjectId, forKey: "firebase_project_id")
                     isProjectIdSaved = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                        isProjectIdSaved = false
-                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) { isProjectIdSaved = false }
+                    // Auto-sync profile to Firebase so friends can find this user
+                    Task { await friendsVM.syncProfileIfNeeded() }
                 } label: {
                     HStack {
-                        if isProjectIdSaved {
-                            Image(systemName: "checkmark.circle.fill")
-                        }
-                        Text(isProjectIdSaved ? "Saved!" : "Save Project ID")
+                        if isProjectIdSaved { Image(systemName: "checkmark.circle.fill") }
+                        Text(isProjectIdSaved ? "Saved & Profile Synced!" : "Save Project ID")
                             .font(.system(size: 15, weight: .bold))
                     }
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(isProjectIdSaved ? AnyShapeStyle(Color(red: 0.0, green: 0.9, blue: 0.7)) : AnyShapeStyle(LinearGradient(colors: [Color(red: 0.0, green: 0.9, blue: 0.7), Color(red: 0.0, green: 0.65, blue: 0.55)], startPoint: .leading, endPoint: .trailing)))
+                    .foregroundStyle(.white).frame(maxWidth: .infinity).padding(.vertical, 12)
+                    .background(isProjectIdSaved
+                        ? AnyShapeStyle(Color(red: 0.0, green: 0.9, blue: 0.7))
+                        : AnyShapeStyle(LinearGradient(colors: [Color(red: 0.0, green: 0.9, blue: 0.7), Color(red: 0.0, green: 0.65, blue: 0.55)], startPoint: .leading, endPoint: .trailing)))
                     .cornerRadius(12)
                 }
-                .disabled(tempProjectId.isEmpty)
-                .opacity(tempProjectId.isEmpty ? 0.5 : 1)
+                .disabled(tempProjectId.isEmpty).opacity(tempProjectId.isEmpty ? 0.5 : 1)
 
                 Text("Create a free Firebase project at console.firebase.google.com, enable Firestore in test mode, and paste your Project ID above.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.35))
-                    .multilineTextAlignment(.center)
+                    .font(.system(size: 11)).foregroundStyle(.white.opacity(0.35)).multilineTextAlignment(.center)
             }
         }
         .alert("Firebase Setup", isPresented: $showFirebaseInfo) {
@@ -237,41 +199,86 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Reset
+    private var resetSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "Data", icon: "externaldrive.fill", color: .gymRed)
+            Button {
+                showResetConfirm = true
+            } label: {
+                HStack {
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 14))
+                    Text("Reset All Data")
+                        .font(.system(size: 15, weight: .bold))
+                }
+                .foregroundStyle(Color.gymRed)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.gymRed.opacity(0.12))
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gymRed.opacity(0.3), lineWidth: 1))
+            }
+            Text("Deletes all workouts, meals, sleep entries, and your profile. This cannot be undone.")
+                .font(.system(size: 11)).foregroundStyle(.white.opacity(0.35)).multilineTextAlignment(.center)
+        }
+        .confirmationDialog("Reset All Data?", isPresented: $showResetConfirm, titleVisibility: .visible) {
+            Button("Delete Everything", role: .destructive) { resetAllData() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will permanently delete all your workouts, meals, sleep entries, and profile data.")
+        }
+    }
+
     // MARK: - About
     private var aboutSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "About", icon: "info.circle.fill", color: .gymPrimary)
             FormCard {
                 HStack {
-                    Text("GymRat")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.white.opacity(0.7))
+                    Text("GymRat").font(.system(size: 14)).foregroundStyle(.white.opacity(0.7))
                     Spacer()
-                    Text("Version 1.0")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
+                    Text("Version 1.0").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
                 }
                 Divider().background(Color.white.opacity(0.08))
                 HStack {
-                    Text("AI Model")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.white.opacity(0.7))
+                    Text("AI Model").font(.system(size: 14)).foregroundStyle(.white.opacity(0.7))
                     Spacer()
-                    Text("Claude Opus 4")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.gymGreen)
+                    Text("Claude Haiku").font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.gymGreen)
                 }
                 Divider().background(Color.white.opacity(0.08))
                 HStack {
-                    Text("Built with")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.white.opacity(0.7))
+                    Text("Built with").font(.system(size: 14)).foregroundStyle(.white.opacity(0.7))
                     Spacer()
-                    Text("SwiftUI · SwiftData")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.gymPrimary)
+                    Text("SwiftUI · SwiftData").font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.gymPrimary)
                 }
             }
         }
+    }
+
+    // MARK: - Reset Logic
+    private func resetAllData() {
+        // Delete all SwiftData records
+        try? modelContext.delete(model: WorkoutSession.self)
+        try? modelContext.delete(model: WorkoutSet.self)
+        try? modelContext.delete(model: FoodEntry.self)
+        try? modelContext.delete(model: SleepEntry.self)
+
+        // Clear profile & settings from UserDefaults
+        let keys = ["gr_displayName", "gr_username", "gr_avatarIndex", "gr_userID",
+                    "anthropic_api_key", "firebase_project_id",
+                    "calorie_goal", "protein_goal", "sleep_goal", "user_name"]
+        keys.forEach { UserDefaults.standard.removeObject(forKey: $0) }
+
+        // Reset published state
+        friendsVM.displayName = ""
+        friendsVM.username = ""
+        friendsVM.avatarIndex = 0
+        friendsVM.userID = ""
+        friendsVM.profileCreated = false
+        friendsVM.friends = []
+        friendsVM.leaderboard = []
+
+        dismiss()
     }
 }

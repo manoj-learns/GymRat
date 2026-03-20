@@ -118,6 +118,12 @@ struct WorkoutView: View {
             if sessions.isEmpty {
                 EmptyStateRow(text: "No workouts yet. Start your first session!")
             } else {
+                HStack {
+                    Spacer()
+                    Label("Swipe to edit or delete", systemImage: "hand.point.left")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.25))
+                }
                 ForEach(sessions.prefix(20)) { session in
                     NavigationLink(destination: WorkoutDetailView(session: session)) {
                         WorkoutSessionCard(session: session)

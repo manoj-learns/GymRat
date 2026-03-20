@@ -5,6 +5,7 @@ import SwiftData
 class FriendsViewModel: ObservableObject {
     // MARK: - State
     @Published var firebaseConfigured = false
+    @Published var isProfileSynced = false
     @Published var isLoading = false
     @Published var isSyncing = false
     @Published var errorMessage: String?
@@ -48,6 +49,31 @@ class FriendsViewModel: ObservableObject {
         firebaseConfigured = await FirebaseService.shared.isConfigured
     }
 
+    func syncProfileIfNeeded() async {
+        await checkFirebaseStatus()
+        guard profileCreated, !userID.isEmpty else {
+            errorMessage = "Create a profile first in the Friends tab."
+            return
+        }
+        guard firebaseConfigured else {
+            errorMessage = "Add your Firebase Project ID in Settings first."
+            return
+        }
+        do {
+            try await FirebaseService.shared.createOrUpdateUser(
+                userId: userID,
+                displayName: displayName,
+                username: username,
+                avatarIndex: avatarIndex
+            )
+            isProfileSynced = true
+            successMessage = "Profile synced! Friends can now find you @\(username)."
+        } catch {
+            isProfileSynced = false
+            errorMessage = "Sync failed: \(error.localizedDescription)"
+        }
+    }
+
     // MARK: - Profile
     func saveProfile(displayName: String, username: String, avatarIndex: Int) async {
         guard !displayName.isEmpty, !username.isEmpty else { return }
@@ -55,24 +81,27 @@ class FriendsViewModel: ObservableObject {
         defer { isLoading = false }
         do {
             await checkFirebaseStatus()
+            self.displayName  = displayName
+            self.username     = username.lowercased()
+            self.avatarIndex  = avatarIndex
+            self.profileCreated = true
+            defaults.set(self.displayName, forKey: "gr_displayName")
+            defaults.set(self.username,    forKey: "gr_username")
+            defaults.set(self.avatarIndex, forKey: "gr_avatarIndex")
             if firebaseConfigured {
                 try await FirebaseService.shared.createOrUpdateUser(
                     userId: userID,
-                    displayName: displayName,
-                    username: username,
-                    avatarIndex: avatarIndex
+                    displayName: self.displayName,
+                    username: self.username,
+                    avatarIndex: self.avatarIndex
                 )
+                isProfileSynced = true
+                successMessage = "Profile saved & synced! Friends can find you @\(self.username)."
+            } else {
+                isProfileSynced = false
+                successMessage = "Profile saved locally. Add Firebase Project ID in Settings to go online."
             }
-            self.displayName  = displayName
-            self.username     = username.lowercased()
-            self.avatarIndex  = avatarIndex
-            self.profileCreated = true
-            defaults.set(self.displayName, forKey: "gr_displayName")
-            defaults.set(self.username,    forKey: "gr_username")
-            defaults.set(self.avatarIndex, forKey: "gr_avatarIndex")
-            successMessage = "Profile saved!"
         } catch {
-            // Save locally even if Firebase fails
             self.displayName  = displayName
             self.username     = username.lowercased()
             self.avatarIndex  = avatarIndex
@@ -80,7 +109,8 @@ class FriendsViewModel: ObservableObject {
             defaults.set(self.displayName, forKey: "gr_displayName")
             defaults.set(self.username,    forKey: "gr_username")
             defaults.set(self.avatarIndex, forKey: "gr_avatarIndex")
-            successMessage = "Profile saved locally!"
+            isProfileSynced = false
+            successMessage = "Profile saved locally. Tap Sync to upload to Firebase."
         }
     }
 
@@ -168,6 +198,7 @@ class FriendsViewModel: ObservableObject {
             )
             successMessage = "Friend added!"
             await loadFriends()
+            await loadLeaderboard()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -184,11 +215,18 @@ class FriendsViewModel: ObservableObject {
     }
 
     func searchUser(query: String) async {
-        guard firebaseConfigured, query.count >= 2 else { searchResults = []; return }
+        guard firebaseConfigured else {
+            errorMessage = "Firebase not configured. Add your Project ID in Settings."
+            searchResults = []
+            return
+        }
+        let cleanQuery = query.hasPrefix("@") ? String(query.dropFirst()) : query
+        guard cleanQuery.count >= 2 else { searchResults = []; return }
         isSearching = true
+        errorMessage = nil
         defer { isSearching = false }
         do {
-            if let result = try await FirebaseService.shared.searchUser(username: query) {
+            if let result = try await FirebaseService.shared.searchUser(username: cleanQuery) {
                 searchResults = [FriendRow(
                     id:          result.userId,
                     displayName: result.displayName,
@@ -197,9 +235,11 @@ class FriendsViewModel: ObservableObject {
                 )]
             } else {
                 searchResults = []
+                errorMessage = "No user found with @\(cleanQuery.lowercased()). Make sure they've created a profile and tapped Sync on the Friends tab."
             }
         } catch {
             searchResults = []
+            errorMessage = "Search failed: \(error.localizedDescription)"
         }
     }
 

@@ -7,8 +7,6 @@ struct ActiveWorkoutView: View {
 
     let session: WorkoutSession
 
-    @State private var elapsed: TimeInterval = 0
-    @State private var timer: Timer?
     @State private var showExercisePicker = false
     @State private var selectedExercise: Exercise?
     @State private var currentExercise: Exercise?
@@ -26,8 +24,7 @@ struct ActiveWorkoutView: View {
             ZStack {
                 Color.gymBackground.ignoresSafeArea()
                 VStack(spacing: 0) {
-                    // Timer header
-                    timerHeader
+                    workoutHeader
                     Divider().background(Color.white.opacity(0.08))
 
                     ScrollView {
@@ -58,37 +55,22 @@ struct ActiveWorkoutView: View {
                 Text("Your workout will be saved with \(setGroups.flatMap { $0.sets }.count) sets logged.")
             }
         }
-        .onAppear { startTimer() }
-        .onDisappear { timer?.invalidate() }
     }
 
-    // MARK: - Timer Header
-    private var timerHeader: some View {
+    // MARK: - Workout Header
+    private var workoutHeader: some View {
         HStack {
-            Button {
-                showFinishAlert = true
-            } label: {
+            Button { showFinishAlert = true } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 28))
                     .foregroundStyle(.white.opacity(0.4))
             }
-
             Spacer()
-
-            VStack(spacing: 2) {
-                Text(timerString(elapsed))
-                    .font(.system(size: 32, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.white)
-                Text("Active Workout")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.5))
-            }
-
+            Text("Active Workout")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(.white)
             Spacer()
-
-            Button {
-                showFinishAlert = true
-            } label: {
+            Button { showFinishAlert = true } label: {
                 Text("Finish")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(.white)
@@ -228,27 +210,11 @@ struct ActiveWorkoutView: View {
     }
 
     private func finishWorkout() {
-        session.duration = elapsed
-        if session.name.isEmpty || session.name == "Workout 0" {
+        if session.name.isEmpty || session.name.hasPrefix("Workout ") {
             let topMuscle = session.sets.first?.exerciseCategory ?? "Full Body"
             session.name = "\(topMuscle) Day"
         }
-        timer?.invalidate()
         dismiss()
-    }
-
-    private func startTimer() {
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            elapsed += 1
-        }
-    }
-
-    private func timerString(_ interval: TimeInterval) -> String {
-        let h = Int(interval) / 3600
-        let m = Int(interval) % 3600 / 60
-        let s = Int(interval) % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, s) }
-        return String(format: "%02d:%02d", m, s)
     }
 
     private func bestPrevious(for exercise: String) -> SetEntry? {

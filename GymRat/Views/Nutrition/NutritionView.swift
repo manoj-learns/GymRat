@@ -249,6 +249,14 @@ struct MealSection: View {
                 .padding(.horizontal, 14)
                 .padding(.bottom, 12)
             } else {
+                HStack {
+                    Spacer()
+                    Label("Swipe to edit or delete", systemImage: "hand.point.left")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white.opacity(0.2))
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 2)
                 ForEach(foods) { food in
                     Divider()
                         .background(Color.white.opacity(0.06))
