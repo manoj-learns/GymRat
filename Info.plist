@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>NSCameraUsageDescription</key>
+	<string>GymRat uses your camera to photograph food so AI can estimate calories and nutrition.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>GymRat reads photos from your library to analyze food for calorie estimation.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>GymRat saves food photos to your library for meal tracking.</string>
+	<key>CFBundleDisplayName</key>
+	<string>GymRat</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleIdentifier</key>
+	<string>TestCode.GymRat</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+</dict>
+</plist>
